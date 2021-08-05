@@ -1,20 +1,21 @@
 %%% Sample code for Replay Extension Model
-%LKW 4/24/21
-%Relies on ripExtend_fast.m and ripExtend_CohenStats.m
+%LKW 8/2/21
+%Relies on ripExtend_fast_V2.m and ripExtend_CohenStats.m
 %Searches ripple prolongation parameter space in dimensions of ramp degree
 %and input pulse duration
 %Plots various metrics and statistics for evaluating network performance
 %under varying waveform shape input
 
 clearvars
-close all
+% close all
 
-pStruct.rampTypeFlag        = 1;           %1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR IP;
+pStruct.rampTypeFlag        = 1;        %1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR IP;
+pStruct.simTypeFlag         = 2;        %1 = Linear; 2 = Linear with Adaptation; 3 = Nonlinear; 4 = Nonlinear with Adaptation
 
 %Setup neuron and weight paramters
 pStruct.N                   = 15;               %Nodes per region
 N                           = 15;
-pStruct.Ww                  = 0.029;            %Weight strength pyr to pyr
+pStruct.Ww                  = 0.031;            %Weight strength pyr to pyr
 pStruct.Hh                  = 0.035;            %Weight strength IN to Pyr
 pStruct.Wh                  = 0.05;             %Weight strength pyr to IN
 pStruct.HAuto               = 0.003;            %Weight strength IN to IN
@@ -29,10 +30,16 @@ pStruct.cueN                = 1;
 pStruct.Iexcit1             = 1;                %Cue pulse strength
 pStruct.Iexcit2             = 0.09;             %Opto pulse strength
 pStruct.inDur1              = 20;               %Duration for cue
-pStruct.inDur2              = 200;              %Opto pulse duration
+pStruct.inDur2              = 100;              %Opto pulse duration
 pStruct.rampLen             = pStruct.inDur2*0.0;  %Duration ramp length e.g. 0.0 to 1.0
 pStruct.onsetDelay          = 50;               %Wait time to ripple start from sim start
-pStruct.stimDelay           = 200;              %Wait time to opto pulse from sim start
+pStruct.stimDelay           = 200;              %Wait time to opto pulse from sim start; try 130 (+50 +20)
+
+% Ionic Currents and related parameters 
+pStruct.mu                  = 0.01;      %Ca-dependent K-current
+pStruct.gm                  = 0.001;     %Gamma; voltage-dependent Ca-currents
+pStruct.om                  = 0.001;     %Omega; constant for diffusion of intracellular Ca
+pStruct.thc                 = 4*ones(1,N);
 
 wtBias                      = linspace(0.004,-0.004,N);
 % wtBias                      = zeros(1,N);
@@ -70,7 +77,7 @@ pStruct.W = W; pStruct.H = H; pStruct.AH = AH;  %Add wtmats to pStruct
 
 %Set up search variables and parameters
 nPs                     = 101;
-pLim                    = 250;      %250 for inDur2
+pLim                    = 250;      %250 for inDur2; 500 for stimDelay
 pFloor                  = 0;
 nRamps                  = 21;
 pVect                   = linspace(pFloor,pLim,nPs);    %Vector of parameter values
@@ -84,7 +91,7 @@ outputs.SDs         = zeros(nRamps,nPs);
 outputs.Ns          = zeros(nRamps,nPs);
 
 %% Gut check above parameters
-[actCell,hactCell,inCell] = ripExtend_fast(pStruct);    %Using ramp defined above
+[actCell,hactCell,inCell] = ripExtend_fast_V2(pStruct);    %Using ramp defined above
 aRamp = actCell{1}; aControl = actCell{2};
 hRamp = hactCell{1};hControl = hactCell{2};
 ARamp = inCell{1};  AControl = inCell{2};
@@ -140,10 +147,11 @@ end
 for i = 1:nRamps
     pStruct.tmpRamp = rampPercs(i);         %Define ramp percentage
     for j = 1:nPs
-        pStruct.inDur2      = pVect(j); 	%Parameter for change
+        pStruct.inDur2      = pVect(j); 	%2nd search param - inDur
+%         pStruct.stimDelay   = pVect(j); %2nd search param - stimDelay
         pStruct.rampLen     = round(pStruct.tmpRamp*pStruct.inDur2);   %Define ramp length
         %Run function
-        [actTmp,hactTmp,inTmp] = ripExtend_fast(pStruct);     %Run simulation
+        [actTmp,hactTmp,inTmp] = ripExtend_fast_V2(pStruct);     %Run simulation
         %Calculate stats
         [outputs.ds(i,j),~,~,outputs.Ns(i,j)] = ripExtend_CohenStats(actTmp,hactTmp,pStruct);
     end
@@ -157,10 +165,15 @@ outputs.meanDiff = abs(outputs.means - cIthI);
 minDLocs = minTimes(outputs.dsNanCor,pVect,nRamps); %Calculate duration of minimum effect size
 minDs = min(flipud(abs(outputs.dsNanCor')));    %Calculate minimum effect size
 
+if max(max(outputs.dsNanCor)) > 5
+    cbMax = 5;
+else
+    cbMax = max(max(outputs.dsNanCor));
+end
 %% Plotting
 %Plot map of d-scores
 figure; set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]); aaa = gca;
-imagesc(flipud(abs(outputs.dsNanCor')),[0,max(max(outputs.dsNanCor))]);
+imagesc(flipud(abs(outputs.dsNanCor')),[0,cbMax]);
 aaa.YTick = 1:round((nPs-1)/5):nPs;   %Reversed 0 at top, max at bottom
 aaa.XTick = 1:round(nRamps-1)/5:nRamps;
 yticklabels(linspace(pLim,pFloor,6));
@@ -193,21 +206,22 @@ durShufDistro = datasample(flipud(abs(outputs.dsNanCor')),permN,1);
 shuf.durShuf = mean(durShufDistro);
 seqShufDistro = datasample(flipud(outputs.Ns'),permN,1);
 shuf.seqShuf = mean(seqShufDistro);
-sdDurShuffle = std(durShufDistro); 
-sdSeqShuffle = std(seqShufDistro);
-% 95% CIs
-shuf.upCIdur = shuf.durShuf + z*sdDurShuffle/sqrt(permN);
-shuf.dnCIdur = shuf.durShuf - z*sdDurShuffle/sqrt(permN);
-shuf.upCIseq = shuf.seqShuf + z*sdSeqShuffle/sqrt(permN);
-shuf.dnCIseq = shuf.seqShuf - z*sdSeqShuffle/sqrt(permN);
+shuf.sdDurShuffle = std(durShufDistro); 
+shuf.sdSeqShuffle = std(seqShufDistro);
 
-% % Sequence Length Shuffles
-% figure;
-% plot(rampPercs*100,shuf.seqShuf,'k',rampPercs*100,shuf.upCIseq,'k--',rampPercs*100,shuf.dnCIseq,'k--')
-% ylim([0 15]);
-% % Minimum effect sizes
-% figure;
-% plot(rampPercs*100,minDs)
+% 95% CIs
+shuf.upCIdur = shuf.durShuf + z*shuf.sdDurShuffle/sqrt(permN);
+shuf.dnCIdur = shuf.durShuf - z*shuf.sdDurShuffle/sqrt(permN);
+shuf.upCIseq = shuf.seqShuf + z*shuf.sdSeqShuffle/sqrt(permN);
+shuf.dnCIseq = shuf.seqShuf - z*shuf.sdSeqShuffle/sqrt(permN);
+
+% Plot Basic Shuffle Figures
+figure;
+plot(rampPercs*100,shuf.seqShuf,'k',rampPercs*100,shuf.upCIseq,'k--',rampPercs*100,shuf.dnCIseq,'k--')
+ylim([0 15]);
+% Minimum effect sizes
+figure;
+plot(rampPercs*100,minDs)
 %% Other variations of describing the ripple extension 
 
 % %Plot map of raw MEANS
@@ -264,19 +278,19 @@ shuf.dnCIseq = shuf.seqShuf - z*sdSeqShuffle/sqrt(permN);
 
 %% Supplementary Graphs
 set(0,'DefaultLineLineWidth',2)
-
-% Afferent 3D plot code
-sqGhost = zeros(1,pStruct.T);
-sqGhost(pStruct.stimDelay+1:pStruct.stimDelay+pStruct.inDur2) = pStruct.Iexcit2;
-figure(); set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.25, 0.28, 0.35, 0.45]); gaa = gca;
-w3 = waterfall(1:pStruct.T,1:N,ARamp); hold on;
-w3.LineWidth = 3;
-% w3Sq = waterfall(1:pStruct.T,1,sqGhost);
-% w3Sq.LineStyle = '--'; w3Sq.EdgeColor = 'r'; w3Sq.LineWidth = 2;
-% xlabel('Time')
-gaa.YTick = 1:7:15;
-% ylabel('Node'); zlabel('Amplitude')
-set(gca,'FontSize',24,'fontname','times')
+% 
+% % Afferent Input 3D plot code
+% sqGhost = zeros(1,pStruct.T);
+% sqGhost(pStruct.stimDelay+1:pStruct.stimDelay+pStruct.inDur2) = pStruct.Iexcit2;
+% figure(); set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.25, 0.28, 0.35, 0.45]); gaa = gca;
+% w3 = waterfall(1:pStruct.T,1:N,ARamp); hold on;
+% w3.LineWidth = 3;
+% % w3Sq = waterfall(1:pStruct.T,1,sqGhost);
+% % w3Sq.LineStyle = '--'; w3Sq.EdgeColor = 'r'; w3Sq.LineWidth = 2;
+% % xlabel('Time')
+% gaa.YTick = 1:7:15;
+% % ylabel('Node'); zlabel('Amplitude')
+% set(gca,'FontSize',24,'fontname','times')
 
 % % Combined Ramp Percentage Shuffles - must load in previous data
 % patchXs = [1:nRamps,linspace(nRamps,1,nRamps)]; %Vector of x coords;

@@ -1,6 +1,6 @@
 function [aRampEnd,aSquareEnd] = simpleCA3Integrator(pStruct,inDur,rampPerc)
 % LKW 4/24/21
-% Function version of Attractor Model calculating 
+% Function version of Attractor Model 
 % Inputs: 
 %   pStruct = struct of parameters from simpleSpaceSearch.m
 %   inDur = double; input duration value
