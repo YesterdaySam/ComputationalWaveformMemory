@@ -132,7 +132,7 @@ for t=1:T-1
         if (ca1PRmp(j,t) - thc(j)) > 0; cc1Rmp(j) = ca1PRmp(j,t) - thc(j); else cc1Rmp(j) = 0; end %Threshold activity under 'thc' to 0
         if (ca1PCtl(j,t) - thc(j)) > 0; cc1Ctl(j) = ca1PCtl(j,t) - thc(j); else cc1Ctl(j) = 0; end
     end
-
+    
     if pStruct.simTypeFlag == 1
         %Standard Linear without Adapatation
         %CA3
@@ -144,17 +144,20 @@ for t=1:T-1
         da1Ctl = tissNoise.*ca1ACtl(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Ctl*ZZ)' - (hh1Ctl*QZ)' - eta.*ca1PCtl(:,t);
         dh1Ctl = (aa3*WQ)' + (aa1Ctl*ZQ)' - HAuto.*hh1Ctl' - eta.*ca1ICtl(:,t);
     elseif pStruct.simTypeFlag == 2
-%         %Linear variant with Adaptation
-%         da1Rmp = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa1Rmp*W)' - (hh1Rmp*H)' - eta.*ca3P(:,t) + mu.*ca1CRmp(:,t).*(Ek - ca3P(:,t));
-%         dh1Rmp = (aa1Rmp*AH)' - HAuto.*hh1Rmp' - eta.*ca3I(:,t);
-%         dc1Rmp = gm.*cc1Rmp' - om.*ca1CRmp(:,t);
-%         da1Ctl = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa1Ctl*W)' - (hh1Ctl*H)' - eta.*ca3P(:,t) + mu.*ca1CCtl(:,t).*(Ek - ca3P(:,t));
-%         dh1Ctl = (aa1Ctl*AH)' - HAuto.*hh1Ctl' - eta.*ca3I(:,t);
-%         dc1Ctl = gm.*cc1Ctl' - om.*ca1CCtl(:,t);
+        da3    = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa3*W)' - (hh3*H)' - eta.*ca3P(:,t) + mu.*ca3C(:,t).*(Ek - ca3P(:,t));
+        dh3    = (aa3*AH)' - HAuto.*hh3' - eta.*ca3I(:,t);
+        dc3    = gm.*cc3' - om.*ca3C(:,t);
+        %Linear variant with Adaptation
+        da1Rmp = tissNoise.*ca1ARmp(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Rmp*ZZ)' - (hh1Rmp*QZ)' - eta.*ca1PRmp(:,t) + mu.*ca1CRmp(:,t).*(Ek - ca1PRmp(:,t));
+        dh1Rmp = (aa3*WQ)' + (aa1Rmp*ZQ)' - HAuto.*hh1Rmp' - eta.*ca1IRmp(:,t);
+        dc1Rmp = gm.*cc1Rmp' - om.*ca1CRmp(:,t);
+        da1Ctl = tissNoise.*ca1ACtl(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Ctl*ZZ)' - (hh1Ctl*QZ)' - eta.*ca1PCtl(:,t) + mu.*ca1CCtl(:,t).*(Ek - ca1PCtl(:,t));
+        dh1Ctl = (aa3*WQ)' + (aa1Ctl*ZQ)' - HAuto.*hh1Ctl' - eta.*ca1ICtl(:,t);
+        dc1Ctl = gm.*cc1Ctl' - om.*ca1CCtl(:,t);
     end
     
-    ca3P(:,t+1)    = ca3P(:,t) + da3;
-    ca3I(:,t+1)    = ca3I(:,t) + dh3;
+    ca3P(:,t+1) = ca3P(:,t) + da3;
+    ca3I(:,t+1) = ca3I(:,t) + dh3;
     ca1PRmp(:,t+1) = ca1PRmp(:,t) + da1Rmp;
     ca1IRmp(:,t+1) = ca1IRmp(:,t) + dh1Rmp;
     ca1PCtl(:,t+1) = ca1PCtl(:,t) + da1Ctl;
@@ -162,6 +165,7 @@ for t=1:T-1
     
     if pStruct.simTypeFlag == 2
         %Adaptation update
+        ca3C(:,t+1)    = ca3C(:,t)    + dc3;
         ca1CRmp(:,t+1) = ca1CRmp(:,t) + dc1Rmp;
         ca1CCtl(:,t+1) = ca1CCtl(:,t) + dc1Ctl;
     end

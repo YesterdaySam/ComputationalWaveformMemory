@@ -1,7 +1,7 @@
-%%% Sample code for CA1 Replay Extension Model
+%%% Sample code for Replay Extension Model
 %LKW 10/1/2021
-%Relies on plotRipExtendSingle_V2.m for plots
-%Calculates activity of CA1 pyr circuit undergoing a cued ripple/replay
+%Relies on plotRipExtendSingle.m for plots
+%Calculates activity of CA3 pyr circuit undergoing a cued ripple/replay
 %event with or without a secondary optogenetic pulse applied mid-replay. 
 %Incorporates simple adaptation current using simulated intracellular Calcium dynamics
 %Plots rate-based circuit activity. 
@@ -12,22 +12,23 @@ close all
 % rng(3)                          %For reproducibility of stochastic simulations
 
 rampTypeFlag        = 1;        %'ctl' = no 2nd pulse; 1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR = IP
-simTypeFlag         = 1;        %1 = Linear; 2 = Linear with Adaptation
+simTypeFlag         = 2;        %1 = Linear; 2 = Linear with Adaptation
 noiseFlag           = 0;        %0 = no noise; 1 = White noise
 disp(['Ramp Type ', num2str(rampTypeFlag),'; Sim Type ', num2str(simTypeFlag), '; Noise type ', num2str(noiseFlag)]);
 saveFlag            = 0;
+saveDir = 'Your\Dir\Here\';
 
 cueN                = 1;            %Cue node
 N                   = 15;           %Nodes per region
-Ww                  = 0.03;        %Weight strength CA3 pyr to CA3 pyr
-Hh                  = 0.034;        %Weight strength CA3 IN to CA3 Pyr
-Wh                  = 0.05;         %Weight strength CA3 pyr to CA3 IN
-Wz                  = 0.02;        %Weight strength CA3 pyr to CA1 pyr
-Qz                  = 0.05;        %Weight strength CA1 IN to CA1 Pyr
-Wq                  = 0.023;        %Weight strength CA3 Pyr to CA1 IN
-Zq                  = 0.05;         %Weight strength CA1 Pyr to CA1 IN
-Zz                  = 0.002;        %Weight strength CA1 Pyr to CA1 Pyr
-HAuto               = 0.003;        %Inhibition self feedback
+Ww                  = 0.0331;       %Weight strength CA3 pyr to CA3 pyr, try 0.03 for non-adapt, 0.0331 for adapt
+Hh                  = 0.034;        %Weight strength CA3 IN to CA3 Pyr, try 0.034 non-adapt
+Wh                  = 0.05;         %Weight strength CA3 pyr to CA3 IN, try 0.05 non-adapt
+Wz                  = 0.02;         %Weight strength CA3 pyr to CA1 pyr, try 0.02 non-adapt
+Qz                  = 0.045;        %Weight strength CA1 IN to CA1 Pyr, try 0.05 non-adapt, 0.045 for adapt
+Wq                  = 0.02;         %Weight strength CA3 Pyr to CA1 IN, try 0.023 non-adapt, 0.02 for adapt
+Zq                  = 0.05;         %Weight strength CA1 Pyr to CA1 IN, try 0.05 non-adapt
+Zz                  = 0.002;        %Weight strength CA1 Pyr to CA1 Pyr, try 0.002 non-adapt
+HAuto               = 0.003;        %Inhibition self feedback, try 0.003
 tha                 = 4*ones(1,N);
 thh                 = 4*ones(1,N);
 thc                 = 4*ones(1,N);
@@ -57,6 +58,7 @@ om  = 0.001;            %Omega; constant for diffusion of intracellular Ca
 wtBias3  = linspace(0.004,-0.00,N);
 wtBias1  = linspace(0.006,-0.006,N);
 wtBias31 = linspace(-0.01,0.01,N);
+% wtBias3  = zeros(1,N);
 W       = zeros(N,N);   %Wt mat CA3 Pyr to CA3 Pyr
 AH      = zeros(N,N);   %Wt mat CA3 Pyr to CA3 IN
 H       = zeros(N,N);   %Wt mat CA3 IN to CA3 Pyr
@@ -112,14 +114,17 @@ ca3C    = zeros(N,T);
 ca1ARmp = zeros(N,T);
 ca1PRmp = zeros(N,T);
 ca1IRmp = zeros(N,T);
+ca1CRmp = zeros(N,T);
 %CA1 Square vectors
 ca1ASqr = zeros(N,T);
 ca1PSqr = zeros(N,T);
 ca1ISqr = zeros(N,T);
+ca1CSqr = zeros(N,T);
 %CA1 Control vectors
 ca1ACtl = zeros(N,T);
-ca1PCtl= zeros(N,T);
+ca1PCtl = zeros(N,T);
 ca1ICtl = zeros(N,T);
+ca1CCtl = zeros(N,T);
 
 %Set up waveform Afferent Inputs
 ca3A(cueN,onsetDelay+1:onsetDelay+inDur1)       = Iexcit1; %Start CA3 ripple
@@ -232,8 +237,8 @@ for t=1:T-1
     if simTypeFlag == 1
         %Standard Linear without Adapatation
         %CA3
-        da3     = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa3*W)' - (hh3*H)' - eta.*ca3P(:,t);
-        dh3     = (aa3*AH)' - HAuto.*hh3' - eta.*ca3I(:,t);
+        da3    = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa3*W)' - (hh3*H)' - eta.*ca3P(:,t);
+        dh3    = (aa3*AH)' - HAuto.*hh3' - eta.*ca3I(:,t);
         %CA1
         da1Rmp = tissNoise.*ca1ARmp(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Rmp*ZZ)' - (hh1Rmp*QZ)' - eta.*ca1PRmp(:,t);
         dh1Rmp = (aa3*WQ)' + (aa1Rmp*ZQ)' - HAuto.*hh1Rmp' - eta.*ca1IRmp(:,t);
@@ -242,15 +247,18 @@ for t=1:T-1
         da1Ctl = tissNoise.*ca1ACtl(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Ctl*ZZ)' - (hh1Ctl*QZ)' - eta.*ca1PCtl(:,t);
         dh1Ctl = (aa3*WQ)' + (aa1Ctl*ZQ)' - HAuto.*hh1Ctl' - eta.*ca1ICtl(:,t);
     elseif simTypeFlag == 2
+        da3    = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa3*W)' - (hh3*H)' - eta.*ca3P(:,t) + mu.*ca3C(:,t).*(Ek - ca3P(:,t));
+        dh3    = (aa3*AH)' - HAuto.*hh3' - eta.*ca3I(:,t);
+        dc3    = gm.*cc3' - om.*ca3C(:,t);
         %Linear variant with Adaptation
-        da1Rmp = tissNoise.*ca3A(:,t) + ANoise(:,t) + (aa1Rmp*W)' - (hh1Rmp*H)' - eta.*ca3PRamp(:,t) + mu.*ca1CRmp(:,t).*(Ek - ca3PRamp(:,t));
-        dh1Rmp = (aa1Rmp*AH)' - HAuto.*hh1Rmp' - eta.*ca3IRamp(:,t);
+        da1Rmp = tissNoise.*ca1ARmp(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Rmp*ZZ)' - (hh1Rmp*QZ)' - eta.*ca1PRmp(:,t) + mu.*ca1CRmp(:,t).*(Ek - ca1PRmp(:,t));
+        dh1Rmp = (aa3*WQ)' + (aa1Rmp*ZQ)' - HAuto.*hh1Rmp' - eta.*ca1IRmp(:,t);
         dc1Rmp = gm.*cc1Rmp' - om.*ca1CRmp(:,t);
-        da1Sqr = tissNoise.*ca3ASquare(:,t) + ANoise(:,t) + (aa1Sqr*W)' - (hh1Sqr*H)' - eta.*ca3PSquare(:,t) + mu.*ca1CSqr(:,t).*(Ek - ca3PSquare(:,t));
-        dh1Sqr = (aa1Sqr*AH)' - HAuto.*hh1Sqr' - eta.*ca3ISquare(:,t);
+        da1Sqr = tissNoise.*ca1ASqr(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Sqr*ZZ)' - (hh1Sqr*QZ)' - eta.*ca1PSqr(:,t) + mu.*ca1CSqr(:,t).*(Ek - ca1PSqr(:,t));
+        dh1Sqr = (aa3*WQ)' + (aa1Sqr*ZQ)' - HAuto.*hh1Sqr' - eta.*ca1ISqr(:,t);
         dc1Sqr = gm.*cc1Sqr' - om.*ca1CSqr(:,t);
-        da1Ctl = tissNoise.*ca3AControl(:,t) + ANoise(:,t) + (aa1Ctl*W)' - (hh1Ctl*H)' - eta.*ca3PControl(:,t) + mu.*ca1CCtl(:,t).*(Ek - ca3PControl(:,t));
-        dh1Ctl = (aa1Ctl*AH)' - HAuto.*hh1Ctl' - eta.*ca3IControl(:,t);
+        da1Ctl = tissNoise.*ca1ACtl(:,t) + ANoise(:,t) + (aa3*WZ)' + (aa1Ctl*ZZ)' - (hh1Ctl*QZ)' - eta.*ca1PCtl(:,t) + mu.*ca1CCtl(:,t).*(Ek - ca1PCtl(:,t));
+        dh1Ctl = (aa3*WQ)' + (aa1Ctl*ZQ)' - HAuto.*hh1Ctl' - eta.*ca1ICtl(:,t);
         dc1Ctl = gm.*cc1Ctl' - om.*ca1CCtl(:,t);
     end
     
@@ -265,6 +273,7 @@ for t=1:T-1
     
     if simTypeFlag == 2
         %Adaptation update
+        ca3C(:,t+1)    = ca3C(:,t)    + dc3;
         ca1CRmp(:,t+1) = ca1CRmp(:,t) + dc1Rmp;
         ca1CSqr(:,t+1) = ca1CSqr(:,t) + dc1Sqr;
         ca1CCtl(:,t+1) = ca1CCtl(:,t) + dc1Ctl;
@@ -403,15 +412,15 @@ yticklabels(linspace(15,1,3)); xticklabels(linspace(1,15,3));
 colorbar; axis square
 set(gca,'FontSize',18,'fontname','times')
 
-% % CA3 IN-Pyr Weight figure for manuscript
-% figure(); bab=gca();
-% imagesc(flipud(H'),[0,max(max(H))]); 
-% % title('Pyr-Pyr Weight (W)');    
-% xlabel('Pre-Synaptic IN'); ylabel('Post-Synaptic CA3')
-% bab.YTick = 1:7:15; bab.XTick = 1:7:15; 
-% yticklabels(linspace(15,1,3)); xticklabels(linspace(1,15,3));
-% colorbar; axis square
-% set(gca,'FontSize',20,'fontname','times')
+% CA3 IN-Pyr Weight figure for manuscript
+figure(); bab=gca();
+imagesc(flipud(H'),[0,max(max(H))]); 
+% title('Pyr-Pyr Weight (W)');    
+xlabel('Pre-Synaptic IN'); ylabel('Post-Synaptic CA3')
+bab.YTick = 1:7:15; bab.XTick = 1:7:15; 
+yticklabels(linspace(15,1,3)); xticklabels(linspace(1,15,3));
+colorbar; axis square
+set(gca,'FontSize',20,'fontname','times')
 
 % % Plot ANoise example
 % figure;
@@ -423,7 +432,6 @@ set(gca,'FontSize',18,'fontname','times')
 %% Saves
 if saveFlag == 1
 disp('saving vars and figs')
-saveDir = 'Your\Dir\Here\';
 
 sdel = num2str(stimDelay);
 

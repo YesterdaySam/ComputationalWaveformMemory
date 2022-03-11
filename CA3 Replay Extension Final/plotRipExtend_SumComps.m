@@ -3,102 +3,12 @@
 % LKW 9/5/2021
 set(0,'DefaultLineLineWidth',2)
 
-adaptFlag = 0; 
 distNoiseFlag = 1;
 opsinNoiseFlag = 1;
 VNoiseFlag = 0;
 
 pStruct.nRamps = 21;
 pStruct.nPs = 101;
-
-%% For Adaptation Sum Plots
-if adaptFlag == 1
-    
-    % Load Variables
-    % No Adaptation Ww = 0.029
-    FRC_NA_W029 = load('F:\Research\Manuscripts\Computational Waveform\Final Code_V1\ComputationalWaveformMemory\Replay Extension Final\Variables\FR_IMA_1000_CI95.mat');
-    FRP_NA_W029 = load('F:\Research\Manuscripts\Computational Waveform\Final Code_V1\ComputationalWaveformMemory\Replay Extension Final\Variables\FR_IP_1000_CI95.mat');
-    DRC_NA_W029 = load('F:\Research\Manuscripts\Computational Waveform\Final Code_V1\ComputationalWaveformMemory\Replay Extension Final\Variables\DR_IMA_1000_CI95.mat');
-    DRP_NA_W029 = load('F:\Research\Manuscripts\Computational Waveform\Final Code_V1\ComputationalWaveformMemory\Replay Extension Final\Variables\DR_IP_1000_CI95.mat');
-    BRC_NA_W029 = load('F:\Research\Manuscripts\Computational Waveform\Final Code_V1\ComputationalWaveformMemory\Replay Extension Final\Variables\BR_IMA_1000_CI95.mat');
-    BRP_NA_W029 = load('F:\Research\Manuscripts\Computational Waveform\Final Code_V1\ComputationalWaveformMemory\Replay Extension Final\Variables\BR_IP_1000_CI95.mat');
-    % Adaptation Ww = 0.029
-    FRC_A_W029 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\FR_IMA_adapt_Ww_29_perms1000_CI95.mat');
-    FRP_A_W029 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\FR_IP_adapt_Ww_29_perms1000_CI95.mat');
-    DRC_A_W029 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\DR_IMA_adapt_Ww_29_perms1000_CI95.mat');
-    DRP_A_W029 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\DR_IP_adapt_Ww_29_perms1000_CI95.mat');
-    BRC_A_W029 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\BR_IMA_adapt_Ww_29_perms1000_CI95.mat');
-    BRP_A_W029 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\BR_IP_adapt_Ww_29_perms1000_CI95.mat');
-    %Adaptation Ww = 0.032
-    FRC_A_W032 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\FR_IMA_adapt_Ww_32_perms1000_CI95.mat');
-    FRP_A_W032 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\FR_IP_adapt_Ww_32_perms1000_CI95.mat');
-    DRC_A_W032 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\DR_IMA_adapt_Ww_32_perms1000_CI95.mat');
-    DRP_A_W032 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\DR_IP_adapt_Ww_32_perms1000_CI95.mat');
-    BRC_A_W032 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\BR_IMA_adapt_Ww_32_perms1000_CI95.mat');
-    BRP_A_W032 = load('F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\BR_IP_adapt_Ww_32_perms1000_CI95.mat');
-    
-    % Plotting Pulse Duration Shuffle Comparisons
-    pStruct.yUp = [8 15];
-    pStruct.yDn = [0 0];
-    
-    % FR IMA
-    pStruct.WFC = 'FRC';
-    pStruct.legendCell = {'No Adapt Ww=0.029','Adapt Ww=0.029','Adapt Ww=0.032','95% CI'};
-    pStruct.legendLoc = 'east';
-    [aaa,baa] = plotSumComp(FRC_NA_W029.FR_IMA_shufs,FRC_A_W029.FR_IMA_shufs,FRC_A_W032.FR_IMA_shufs,pStruct);
-
-    % DR IMA
-    pStruct.WFC = 'DRC';
-    pStruct.legendCell = 0;
-    [aab,bab] = plotSumComp(DRC_NA_W029.DR_IMA_shufs,DRC_A_W029.DR_IMA_shufs,DRC_A_W032.DR_IMA_shufs,pStruct);
-    
-    % BR IMA
-    pStruct.WFC = 'BRC';
-    [aac,bac] = plotSumComp(BRC_NA_W029.BR_IMA_shufs,BRC_A_W029.BR_IMA_shufs,BRC_A_W032.BR_IMA_shufs,pStruct);
-
-    % FR IP
-    pStruct.WFC = 'FRP';
-    [aad,bad] = plotSumComp(FRP_NA_W029.FR_IP_shufs,FRP_A_W029.FR_IP_shufs,FRP_A_W032.FR_IP_shufs,pStruct);
-
-    % DR IP
-    pStruct.WFC = 'DRP';
-    [aae,bae] = plotSumComp(DRP_NA_W029.DR_IP_shufs,DRP_A_W029.DR_IP_shufs,DRP_A_W032.DR_IP_shufs,pStruct);
-    
-    % BR IP
-    pStruct.WFC = 'BRP';
-    [aaf,baf] = plotSumComp(BRP_NA_W029.BR_IP_shufs,BRP_A_W029.BR_IP_shufs,BRP_A_W032.BR_IP_shufs,pStruct);
-    
-    % Save
-    saveDir = 'F:\Research\Code\CA3 Region Code\Ripple Extension Model\RipExtend Figures V2\RipExtend_Adapt\';
-    saveas(aaa,[saveDir,'FR_IMA_shufflesComp'],'fig')
-    saveas(aaa,[saveDir,'FR_IMA_shufflesComp'],'svg')
-    saveas(aab,[saveDir,'DR_IMA_shufflesComp'],'fig')
-    saveas(aab,[saveDir,'DR_IMA_shufflesComp'],'svg')
-    saveas(aac,[saveDir,'BR_IMA_shufflesComp'],'fig')
-    saveas(aac,[saveDir,'BR_IMA_shufflesComp'],'svg')
-    saveas(aad,[saveDir,'FR_IP_shufflesComp'],'fig')
-    saveas(aad,[saveDir,'FR_IP_shufflesComp'],'svg')
-    saveas(aae,[saveDir,'DR_IP_shufflesComp'],'fig')
-    saveas(aae,[saveDir,'DR_IP_shufflesComp'],'svg')
-    saveas(aaf,[saveDir,'BR_IP_shufflesComp'],'fig')
-    saveas(aaf,[saveDir,'BR_IP_shufflesComp'],'svg')
-    
-    saveas(baa,[saveDir,'FR_IMA_seqShufflesComp'],'fig')
-    saveas(baa,[saveDir,'FR_IMA_seqShufflesComp'],'svg')
-    saveas(bab,[saveDir,'DR_IMA_seqShufflesComp'],'fig')
-    saveas(bab,[saveDir,'DR_IMA_seqShufflesComp'],'svg')
-    saveas(bac,[saveDir,'BR_IMA_seqShufflesComp'],'fig')
-    saveas(bac,[saveDir,'BR_IMA_seqShufflesComp'],'svg')
-    saveas(bad,[saveDir,'FR_IP_seqShufflesComp'],'fig')
-    saveas(bad,[saveDir,'FR_IP_seqShufflesComp'],'svg')
-    saveas(bae,[saveDir,'DR_IP_seqShufflesComp'],'fig')
-    saveas(bae,[saveDir,'DR_IP_seqShufflesComp'],'svg')
-    saveas(baf,[saveDir,'BR_IP_seqShufflesComp'],'fig')
-    saveas(baf,[saveDir,'BR_IP_seqShufflesComp'],'svg')
-    
-    close all
-
-end
     
 %% Light Scattering Noise Comparisons
 if distNoiseFlag == 1    
@@ -366,37 +276,3 @@ if VNoiseFlag == 1
     close all
 
 end
-
-%% Must Load in previously saved minDLoc data
-% figure; set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]); vvv = gca;
-% plot(FR_IMA_minLocs,'r-'); hold on;
-% plot(DR_IMA_minLocs,'b-');
-% plot(BR_IMA_minLocs,'c-');
-% plot(FR_IP_minLocs,'r--');
-% plot(DR_IP_minLocs-1,'b--');
-% plot(BR_IP_minLocs+1,'c--');
-% vvv.XTick = 1:round(nRamps-1)/5:nRamps;
-% xticklabels(0:20:100);
-% xlabel('Ramp Percentage'); ylabel('Input Duration (ms)'); 
-% axis square; 
-% % title('Input Duration of Minimum Effect Size')
-% legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','FontSize',16,'location','northwest');
-% ylim([0 101]); xlim([1 nRamps]);
-% set(vvv,'FontSize',24,'fontname','times')
-% 
-% %Must Load in previously saved minD data
-% figure; set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]); vvx = gca;
-% plot(FR_IMA_minDs,'r-'); hold on;
-% plot(DR_IMA_minDs,'b-');
-% plot(BR_IMA_minDs,'c-');
-% plot(FR_IP_minDs,'r--');
-% plot(DR_IP_minDs,'b--');
-% plot(BR_IP_minDs,'c--');
-% vvx.XTick = 1:round(nRamps-1)/5:nRamps;
-% xticklabels(0:20:100);
-% xlabel('Ramp Percentage'); ylabel('Least Temporal Disruption'); 
-% axis square; 
-% % title('Minimum Effect Size')
-% legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','FontSize',16,'location','northwest');
-% ylim([0 0.5]); xlim([1 nRamps]);
-% set(vvx,'FontSize',24,'fontname','times')

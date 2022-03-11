@@ -1,6 +1,4 @@
 function [handle,ax1,ax2] = plotCA3Ripples_fast(actCell,hactCell,inCell,locsCell,pksCell,cueN)
-%%% Sample code for Replay Extension Model
-%LKW 4/24/21
 %%% 
 %Inputs: 
 % actCell 1x2 cell of pyramidal activation matrices in NxT format
@@ -18,8 +16,6 @@ set(0,'DefaultLineLineWidth',2)
 aRamp = actCell{1}; aControl = actCell{2};
 hRamp = hactCell{1};hControl = hactCell{2};
 ARamp = inCell{1};  AControl = inCell{2};
-% locsR = locsCell{1};locsC = locsCell{2};
-% pksR = pksCell{1};  pksC  = pksCell{2};
 N = size(aRamp,1);
 
 %Plot activity
@@ -41,7 +37,7 @@ for i = 1:N
 end
 legCell(ct) = {strcat('Ramp Pyr')};
 % scatter(locsR,pksR*0,'k^','filled')
-ylim([-inf,35]); ylabel('Activation'); 
+ylim([-20,35]); ylabel('Activation'); 
 xlim([0,1000]); % xlabel('Time (ms)');
 legend(legCell,'Location','northeast')
 set(gca,'FontSize',24, 'XTickLabel',[],'fontname','times')
@@ -62,7 +58,7 @@ end
 legCell(ct) = {strcat('Control Pyr')};
 % scatter(locsS,pksS*0,'k^','filled')
 xlim([0,1000]); xlabel('Time (ms)'); 
-ylim([-inf,35]); ylabel('Activation'); 
+ylim([-20,35]); ylabel('Activation'); 
 legend(legCell,'Location','northeast')
 set(gca,'FontSize',24,'fontname','times')
 

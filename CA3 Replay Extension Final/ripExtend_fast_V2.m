@@ -77,35 +77,68 @@ elseif pStruct.rampTypeFlag == 7    %BR IP
 end
 
 %Build noise
+if pStruct.noiseFlag == 3 || pStruct.noiseFlag == 4
+if pStruct.IrrVal == 8
+    load ScatteringFitIrr8mW.mat    %fspline calculated from 8mW irradiance (mW/mm^2)
+elseif pStruct.IrrVal == 10
+    load ScatteringFitIrr10mW.mat    %fspline calculated from 10mW irradiance (mW/mm^2)
+end
+end
+
 if pStruct.noiseFlag == 0
     ANoise = zeros(N,T);
     tissNoise = ones(N,1);
-elseif pStruct.noiseFlag == 1
+elseif pStruct.noiseFlag == 1   %V Noise only
     noiseAmp = pStruct.noiseAmp;
+%     rng(pStruct.kern);                  %Noise kernel on/off
+    ChR2Noise = ones(N,1);        %For testing V Noise alone
+    distNoise = ones(N,1);        %For testing V Noise alone
+    ANoise = 2*noiseAmp.*(rand(N,T) - 0.5);
+    
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
+
+elseif pStruct.noiseFlag == 2   %ChR2 Noise only
+    ANoise = zeros(N,T);
+    distNoise = ones(N,1);        %For testing ChR2Noise alone
+
     noiseMu = pStruct.noiseMu;
     noiseSigma = pStruct.noiseSigma;
-%     rng(pStruct.kern);                  %Noise kernel on/off
+    ChR2Noise = noiseMu - abs(randn(N,1)*noiseSigma); %Gain factor applied to each afferent pulse reflecting heterogeneity of ChR2 expression
 
-    %Voltage Noise from LFP fluctuations
-    ANoise = noiseAmp.*(rand(N,T) - 0.5);
-%     ChR2Noise = ones(N,1);        %For testing ANoise alone
-%     distNoise = ones(N,1);        %For testing ANoise alone
-
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
+    
+elseif pStruct.noiseFlag == 3   %Distance Noise only
+    ANoise = zeros(N,T);
+    ChR2Noise = ones(N,1);
+    
 %     Light Scattering Noise from distance in 3D space
-%     load ScatteringFitIrr8mW.mat    %fspline calculated from 8mW irradiance (mW/mm^2)
-    load ScatteringFitIrr10mW.mat    %fspline calculated from 10mW irradiance (mW/mm^2)
+%     load ScatteringFitVars.mat      %fspline calculated from percent power dropoff with distance through tissue
     sTip = [0 0 0]; %set laser source at origin
     unitLocs = [rand(1,N)-0.5;rand(1,N)-0.5;rand(1,N)/10+0.2]; % Arranged 3 x N where rows are X, Y, Z in mm
     unitDist = sqrt((sTip(1) - unitLocs(1,:)).^2 + (sTip(2) - unitLocs(2,:)).^2 + (sTip(3) - unitLocs(3,:)).^2);
     distNoise = fspline(unitDist);  %Apply distance to power dropoff transform
     distNoise(distNoise > 5) = 5;   %Threshold irradiance > 5 to 5mW
     distNoise = distNoise/5;        %Get normalized % activation with distance dropoff
-%     ChR2Noise = ones(N,1);        %For testing distNoise alone
-    
-    %Protein Expression Noise
+
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
+
+elseif pStruct.noiseFlag == 4   %Combined Noise
+    noiseAmp = pStruct.noiseAmp;
+    ANoise = 2*noiseAmp.*(rand(N,T) - 0.5);
+
+    noiseMu = pStruct.noiseMu;
+    noiseSigma = pStruct.noiseSigma;
     ChR2Noise = noiseMu - abs(randn(N,1)*noiseSigma); %Gain factor applied to each afferent pulse reflecting heterogeneity of ChR2 expression
-%     distNoise = ones(N,1);        %For testing ChR2Noise alone
-    
+
+%     Light Scattering Noise from distance in 3D space
+%     load ScatteringFitVars.mat      %fspline calculated from percent power dropoff with distance through tissue
+    sTip = [0 0 0]; %set laser source at origin
+    unitLocs = [rand(1,N)-0.5;rand(1,N)-0.5;rand(1,N)/10+0.2]; % Arranged 3 x N where rows are X, Y, Z in mm
+    unitDist = sqrt((sTip(1) - unitLocs(1,:)).^2 + (sTip(2) - unitLocs(2,:)).^2 + (sTip(3) - unitLocs(3,:)).^2);
+    distNoise = fspline(unitDist);  %Apply distance to power dropoff transform
+    distNoise(distNoise > 5) = 5;   %Threshold irradiance > 5 to 5mW
+    distNoise = distNoise/5;        %Get normalized % activation with distance dropoff
+        
     tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
 end
 

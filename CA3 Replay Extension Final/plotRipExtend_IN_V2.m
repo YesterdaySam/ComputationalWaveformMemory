@@ -16,7 +16,7 @@ function [fhandle,ax1] = plotRipExtend_IN_V2(aRamp,hRamp,ARamp,pStruct)
 set(0,'DefaultLineLineWidth',2)
 N = size(hRamp,1);
 
-nc = autumn(N);
+nc = jet(N);
 rc = gray(N+5);
 if pStruct.rampTypeFlag == 'ctl'
     rampStr = 'Control INs';

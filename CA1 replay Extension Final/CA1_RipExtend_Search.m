@@ -10,23 +10,24 @@ clearvars
 close all
 
 pStruct.rampTypeFlag        = 1;        %1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR IP;
-pStruct.simTypeFlag         = 1;        %1 = Linear; 2 = Linear with Adaptation
+pStruct.simTypeFlag         = 2;        %1 = Linear; 2 = Linear with Adaptation
 pStruct.noiseFlag           = 0;        %0 = no noise; 1 = White noise;
 saveFlag                    = 0;
+saveDir = 'Your\Dir\Here\';
 suppGraphFlag               = 0;
 disp(['Ramp Type ', num2str(pStruct.rampTypeFlag),'; Sim Type ', num2str(pStruct.simTypeFlag), '; Noise type ', num2str(pStruct.noiseFlag)]);
 
 %Setup neuron and weight paramters
 pStruct.N                   = 15;               %Nodes per region
 N                           = 15;
-pStruct.Ww                  = 0.03;            %Weight strength pyr to pyr; try 0.029 for no adapt or 0.032 for adapt
+pStruct.Ww                  = 0.0331;           %Weight strength pyr to pyr; try 0.03 for no adapt or 0.0331 for adapt
 pStruct.Hh                  = 0.034;            %Weight strength IN to Pyr
 pStruct.Wh                  = 0.05;             %Weight strength pyr to IN
-pStruct.Wz                  = 0.02;        %Weight strength CA3 pyr to CA1 pyr
-pStruct.Qz                  = 0.05;        %Weight strength CA1 IN to CA1 Pyr
-pStruct.Wq                  = 0.023;       %Weight strength CA3 Pyr to CA1 IN
-pStruct.Zq                  = 0.05;        %Weight strength CA1 Pyr to CA1 IN
-pStruct.Zz                  = 0.002;       %
+pStruct.Wz                  = 0.02;             %Weight strength CA3 pyr to CA1 pyr
+pStruct.Qz                  = 0.045;             %Weight strength CA1 IN to CA1 Pyr, 0.05 non-adapt
+pStruct.Wq                  = 0.02;            %Weight strength CA3 Pyr to CA1 IN, 0.023 non-adapt
+pStruct.Zq                  = 0.05;             %Weight strength CA1 Pyr to CA1 IN
+pStruct.Zz                  = 0.002;            %Weight strength CA1 Pyr to CA1 Pyr
 pStruct.HAuto               = 0.003;            %Weight strength IN to IN
 pStruct.tha                 = 4*ones(1,N);
 pStruct.thh                 = 4*ones(1,N);
@@ -65,7 +66,7 @@ W                           = zeros(N,N);   %Wt mat CA3 Pyr to CA3 Pyr
 AH                          = zeros(N,N);   %Wt mat CA3 Pyr to CA3 IN
 H                           = zeros(N,N);   %Wt mat CA3 IN to CA3 Pyr
 WZ                          = zeros(N,N);   %Wt mat CA3 Pyr to CA1 Pyr
-QZ                          = zeros(N,N); %Wt mat CA1 IN to CA1 Pyr
+QZ                          = zeros(N,N);   %Wt mat CA1 IN to CA1 Pyr
 WQ                          = zeros(N,N);   %Wt mat CA3 Pyr to CA1 IN
 ZQ                          = zeros(N,N);   %Wt mat CA1 Pyr to CA1 IN
 ZZ                          = ones(N,N)*pStruct.Zz;
@@ -170,7 +171,7 @@ end
 outputs.dsNanCor = abs(outputs.ds);
 if pStruct.noiseFlag == 1   %Use 99th percentile instead of data max
     linearDs = abs(reshape(outputs.ds,[1 numel(outputs.ds)]));
-    tmpMax = prctile(linearDs,99);
+    tmpMax = prctile(linearDs,99)
 else                        %Use maximum, non Inf simulation value
     tmpMax = max(max(abs(~isinf(outputs.dsNanCor).*outputs.dsNanCor)));
 end
@@ -183,9 +184,9 @@ outputs.dINs(isnan(outputs.dINs)) = tmpINMax;
 minDLocs = minTimes(outputs.dsNanCor,pVect,nRamps); %Calculate duration of minimum effect size
 minDs = min(flipud(outputs.dsNanCor'));    %Calculate minimum effect size
 
-cbMax = tmpMax;
+% cbMax = tmpMax;
 % cbMax = max(max(outputs.dsNanCor));
-% cbMax = 5;
+cbMax = 2.5;
 %% Plotting of Heatmaps
 
 %Plot map of d-scores
@@ -313,7 +314,7 @@ patch(patchXs,[FR_IP_shufs.dnCIdur,fliplr(FR_IP_shufs.upCIdur)],'k','EdgeColor',
 patch(patchXs,[DR_IP_shufs.dnCIdur,fliplr(DR_IP_shufs.upCIdur)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
 patch(patchXs,[BR_IP_shufs.dnCIdur,fliplr(BR_IP_shufs.upCIdur)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
 xlabel('Ramp Percentage'); ylabel('Mean Effect Size')
-legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','95% CI','FontSize',16,'location','southwest');
+legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','95% CI','FontSize',16,'location','northwest');
 ylim([0 3]); xlim([1 nRamps]); saa.XTick = linspace(0,nRamps,6); xticklabels(0:20:100)
 set(gca,'FontSize',24,'fontname','times')
 % 
@@ -480,7 +481,7 @@ end
 %% Saves
 if saveFlag == 1
 disp('saving vars and figs')
-saveDir = 'F:\Research\Code\CA1 Region Code\CA1_RipExtend\CA1_RipExtend_Figs\';
+
 if z == 1.96
     ciStr = ['_perms',num2str(permN),'_CI95'];
 elseif z == 2.58

@@ -4,22 +4,23 @@
 %Calculates activity of CA3 pyr circuit undergoing a cued ripple/replay
 %event with or without a secondary optogenetic pulse applied mid-replay. 
 %Incorporates simple adaptation current using simulated intracellular Calcium dynamics
-%Plots rate-based circuit activity.
+%Plots rate-based circuit activity. 
 %%%
 
 clearvars
 close all
-% rng(3)                          %For reproducibility of stochastic simulations
+% rng(1)                          %For reproducibility of stochastic simulations
 
-rampTypeFlag        = 'ctl';        %'ctl' = no 2nd pulse; 1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR = IP
-simTypeFlag         = 1;        %1 = Linear; 2 = Linear with Adaptation
-noiseFlag           = 0;        %0 = no noise; 1 = Opto Response Noise (see noise section below)
+rampTypeFlag        = 1;        %'ctl' = no 2nd pulse; 1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR = IP
+simTypeFlag         = 2;        %1 = Linear; 2 = Linear with Adaptation
+noiseFlag           = 0;        %0 = no noise; 1 = Voltage noise; 2 = Opsin Noise; 3 = Light Scattering noise; 4 = All noise
 disp(['Ramp Type ', num2str(rampTypeFlag),'; Sim Type ', num2str(simTypeFlag), '; Noise type ', num2str(noiseFlag)]);
 saveFlag            = 0;
+saveDir = 'Your\Dir\Here\';
 
 cueN                = 1;            %Cue node
 N                   = 15;           %Nodes per region
-Ww                  = 0.029;        %Weight strength pyr to pyr; 0.029 standard, 0.031 for simTypeFlag == 2
+Ww                  = 0.032;        %Weight strength pyr to pyr
 Hh                  = 0.035;        %Weight strength IN to Pyr
 Wh                  = 0.05;         %Weight strength pyr to IN
 HAuto               = 0.003;        %Inhibition self feedback
@@ -32,12 +33,12 @@ Iexcit1             = 1;            %Try 0.5 with Iexcit2 at 0.05 for ramp < squ
 Iexcit2             = 0.09;         %Try as low as 0.09 or 0.05 opto pulse for good ripple spacing
 inDur1              = 20;           %Duration for kicking off a ripple
 inDur2              = 100;          %Stim duration
-rampPerc            = 0.5;         %Percentage of ramp
+rampPerc            = 0.5;          %Percentage of ramp
 rampLen             = round(inDur2*rampPerc);  %Duration ramp length e.g. 1/5 or 1/2
 onsetDelay          = 50;           %Wait time to ripple start from sim start
-stimDelay           = 130 + onsetDelay + inDur1;          %Wait time to opto pulse from simulation start
-noiseAmp            = 0.1;         %Amplitude of Voltage noise.
-noiseMu             = 1;           %Mean of ChR2 noise distro
+stimDelay           = 150 + onsetDelay + inDur1;          %Wait time to opto pulse from simulation start
+noiseAmp            = 0.5;          %Amplitude of Voltage noise. Try 0.1 or 0.5
+noiseMu             = 1;            %Mean of ChR2 noise distro
 noiseSigma          = 0.05;         %Variance of ChR2 noise distro
 
 % Ionic Currents and related parameters 
@@ -137,29 +138,60 @@ elseif rampTypeFlag == 7    %BR IP
 end
 
 %% Build noise
+
 if noiseFlag == 0
     ANoise = zeros(N,T);
     tissNoise = ones(N,1);
-elseif noiseFlag == 1
-%     %Voltage Noise from LFP fluctuations
-    ANoise = rand(N,T)*noiseAmp - 0.5*noiseAmp; %Set noiseAmp to 0 if investigating other noise alone
+elseif noiseFlag == 1   %V Noise only
+%     rng(kern);                  %Noise kernel on/off
+    ChR2Noise = ones(N,1);        %For testing V Noise alone
+    distNoise = ones(N,1);        %For testing V Noise alone
+    ANoise = 2*noiseAmp.*(rand(N,T) - 0.5);
     
-    %Light Scattering Noise from distance in 3D space
-%     load ScatteringFitIrr8mW.mat    %fspline calculated from 8mW irradiance (mW/mm^2)
-    load ScatteringFitIrr10mW.mat   %fspline calculated from 10mW irradiance (mW/mm^2)
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
+
+elseif noiseFlag == 2   %ChR2 Noise only
+    ANoise = zeros(N,T);
+    distNoise = ones(N,1);        %For testing ChR2Noise alone
+
+    ChR2Noise = noiseMu - abs(randn(N,1)*noiseSigma); %Gain factor applied to each afferent pulse reflecting heterogeneity of ChR2 expression
+
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
+    
+elseif noiseFlag == 3   %Distance Noise only
+    ANoise = zeros(N,T);
+    ChR2Noise = ones(N,1);
+    
+%     Light Scattering Noise from distance in 3D space
+%     load ScatteringFitVars.mat      %fspline calculated from percent power dropoff with distance through tissue
+    load ScatteringFitIrr8mW.mat    %fspline calculated from 8mW irradiance (mW/mm^2)
+%     load ScatteringFitIrr10mW.mat    %fspline calculated from 10mW irradiance (mW/mm^2)
     sTip = [0 0 0]; %set laser source at origin
     unitLocs = [rand(1,N)-0.5;rand(1,N)-0.5;rand(1,N)/10+0.2]; % Arranged 3 x N where rows are X, Y, Z in mm
     unitDist = sqrt((sTip(1) - unitLocs(1,:)).^2 + (sTip(2) - unitLocs(2,:)).^2 + (sTip(3) - unitLocs(3,:)).^2);
     distNoise = fspline(unitDist);  %Apply distance to power dropoff transform
     distNoise(distNoise > 5) = 5;   %Threshold irradiance > 5 to 5mW
     distNoise = distNoise/5;        %Get normalized % activation with distance dropoff
-%     ChR2Noise = ones(N,1);          %Set ChR2Noise to 0 to investigate Light scattering alone
-    
-    %Protein Expression Noise
+
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
+
+elseif noiseFlag == 4   %Combined Noise
+    ANoise = 2*noiseAmp.*(rand(N,T) - 0.5);
+
     ChR2Noise = noiseMu - abs(randn(N,1)*noiseSigma); %Gain factor applied to each afferent pulse reflecting heterogeneity of ChR2 expression
-%     distNoise = ones(N,1);          %Set distNoise to 0 to investigate ChR2Noise alone
-    
-    tissNoise = ChR2Noise .* distNoise;   %Multiply ChR2 Noise with distance Noise
+
+%     Light Scattering Noise from distance in 3D space
+%     load ScatteringFitVars.mat      %fspline calculated from percent power dropoff with distance through tissue
+%     load ScatteringFitIrr8mW.mat    %fspline calculated from 8mW irradiance (mW/mm^2)
+    load ScatteringFitIrr10mW.mat    %fspline calculated from 10mW irradiance (mW/mm^2)
+    sTip = [0 0 0]; %set laser source at origin
+    unitLocs = [rand(1,N)-0.5;rand(1,N)-0.5;rand(1,N)/10+0.2]; % Arranged 3 x N where rows are X, Y, Z in mm
+    unitDist = sqrt((sTip(1) - unitLocs(1,:)).^2 + (sTip(2) - unitLocs(2,:)).^2 + (sTip(3) - unitLocs(3,:)).^2);
+    distNoise = fspline(unitDist);  %Apply distance to power dropoff transform
+    distNoise(distNoise > 5) = 5;   %Threshold irradiance > 5 to 5mW
+    distNoise = distNoise/5;        %Get normalized % activation with distance dropoff
+        
+    tissNoise = ChR2Noise .* distNoise;   %Combined noise effect
 end
 
 % %Plot histogram of unit distance from source in 3D space
@@ -293,11 +325,11 @@ if pStruct.rampTypeFlag ~= 'ctl'
     tttCell(1) = {tttCell{1}(tttCell{1} > stimDelay)};  %Only use the peaks after opto stim onset
 end
 rampPlot = plotRipExtendSingle_V2(aRamp,ARamp,tttCell{1},pStruct);
-% rampINPlot = plotRipExtend_IN_V2(aRamp,hRamp,ARamp,pStruct);
+rampINPlot = plotRipExtend_IN_V2(aRamp,hRamp,ARamp,pStruct);
 if rampTypeFlag == 'ctl'
     pStruct.rampTypeFlag = 'sqr';
     squarePlot = plotRipExtendSingle_V2(aSquare,ASquare,tttCell{2},pStruct);
-%     squareINPlot = plotRipExtend_IN_V2(aSquare,hSquare,ASquare,pStruct);
+    squareINPlot = plotRipExtend_IN_V2(aSquare,hSquare,ASquare,pStruct);
 end
 
 % % Pyr-Pyr Weight figure for manuscript
@@ -309,7 +341,7 @@ end
 % yticklabels(linspace(15,1,3)); xticklabels(linspace(1,15,3));
 % colorbar; axis square
 % set(gca,'FontSize',20,'fontname','times')
-% 
+
 % % IN-Pyr Weight figure for manuscript
 % figure(); bab=gca();
 % imagesc(flipud(H'),[0,max(max(H))]); 
@@ -320,7 +352,7 @@ end
 % colorbar; axis square
 % set(gca,'FontSize',20,'fontname','times')
 
-% % Plot ANoise example for manuscript
+% % Plot ANoise example
 % figure;
 % plot(ANoise(1,:),'k')
 % % ylabel('Activity'); xlabel('Time')
@@ -330,7 +362,6 @@ end
 %% Saves
 if saveFlag == 1
 disp('saving vars and figs')
-saveDir = 'Your\Dir\Here\';
 
 sdel = num2str(stimDelay);
 
@@ -390,4 +421,5 @@ elseif pStruct.rampTypeFlag == 7
 %     saveas(rampINPlot,[saveDir,'BR_IP_IN_activity'],'png')
 %     saveas(rampINPlot,[saveDir,'BR_IP_IN_activity'],'svg')
 end
+disp('Saving done')
 end

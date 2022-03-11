@@ -1,4 +1,4 @@
-function [names,corr_out,p_out,fout] = rmpWFCorr(filePath)
+function [names,corr_out,p_out] = rmpWFCorr(filePath,saveFlag)
 % LKW 10/19/21
 % Inputs: 
 %   filePath = string path to saved .mat file containing data
@@ -35,8 +35,14 @@ for i = 1:size(corrCell,1)
         end
     end
 end
-fout = filePath;
+
 names = corrCell(:,1);
 corr_out = cell2mat(corrCell(:,2));
 p_out = cell2mat(corrCell(:,3));
+
+if saveFlag == 1
+    sname = [filePath,'_corrs'];
+    save(sname,'names','corr_out','p_out');
+end
+
 end

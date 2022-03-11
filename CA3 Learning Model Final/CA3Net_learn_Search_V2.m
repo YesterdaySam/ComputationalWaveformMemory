@@ -10,21 +10,24 @@
 
 clearvars
 close all
-load learnControl_adapt_sym_offAxis2_0_3_6_W0_035.mat
+load learnControl_adapt_sym_offAxis1_37.mat
 
-pStruct.rampTypeFlag    = 1;    %1 = FRC; 2 = DRC; 3 = FRP; 4 = DRP; 6 = BRC; 7 = BRP
+pStruct.rampTypeFlag    = 1;    %1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 6 = BR IMA; 7 = BR IP
 suppGraphFlag           = 0;    %Plot extra graphs or not
 pStruct.simTypeFlag     = 2;    %1 = Linear; 2 = Linear with Adaptation
 pStruct.noiseFlag       = 0;    %0 = no noise; 1 = White noise; 2 = 1/f or pink noise
 pStruct.wtNoiseFlag     = 0;    %0 = no noise; 1 = Lognormal noise distribution using parameters Mu and Sigma
 gutCheckFlag            = 1;    %0 = no gut check; 1 = gut check
 saveFlag                = 0;    %0 = no save;      1 = saves
+saveDir = 'Your\Dir\Here\';
+prmtag = '_altCtlWt1_37_learnDur';            %name of changed parameter
+
 disp(['Ramp Type ', num2str(pStruct.rampTypeFlag),'; Sim Type ', num2str(pStruct.simTypeFlag), ...
     '; Noise type ', num2str(pStruct.noiseFlag), '; Wt Mat Noise type ', num2str(pStruct.wtNoiseFlag)]);
 
 %Setup neuron and weight paramters
 pStruct.N               = 15;       %Nodes per region
-N                       = 15;       %For dry run
+N                       = 15;       %For gut check run
 dt                      = 1;
 pStruct.Ww              = 0.035;    %Weight strength pyr to pyr
 pStruct.Hh              = 0.05;     %Weight strength IN to Pyr
@@ -48,7 +51,7 @@ pStruct.noiseMu         = 1;            %Mean of lognormal wt distro
 pStruct.noiseSigma      = 0.4;            %Variance of lognorm wt distro
 
 %Setup input parameters
-pStruct.dt              = dt;
+pStruct.dt              = 1;
 pStruct.TLearn          = 1500/dt;     %Time steps, must be even
 pStruct.TTest           = 1500/dt;
 pStruct.cueN            = 1;
@@ -56,9 +59,11 @@ pStruct.Iexcit1         = 0.5;      %Strength of learn pulses (Iso current)
 pStruct.Iexcit2         = 1;     	%Strength of test cue pulse
 pStruct.testDur         = 20/dt;       %Test phase cue duration
 pStruct.learnDur        = 80/dt;       %Learn phase pulse duration
+% pStruct.learnOverlap    = 44;       %Learn phase pulse overlap (ms)
 pStruct.learnOverlap    = 0.55;      %Learn phase pulse overlap %
-pStruct.rampPerc        = 0.50;
+pStruct.rampPerc        = 0.25;
 pStruct.rampLen1        = round(pStruct.learnDur*pStruct.rampPerc);  %Duration ramp length
+% pStruct.rampLen2        = round(pStruct.learnDur*pStruct.rampPerc);
 pStruct.onsetDelay      = 50/dt;        %Wait time to ripple start from sim start
 pStruct.achTest         = 1;
 
@@ -230,12 +235,14 @@ outputs.nanZedDs(isnan(outputs.nanZedDs)) = 0;      %Convert any nans to 0s for 
 bestSeqInds = bestSeqN(flipud(outputs.testN'),pVect,nRamps);
 minDs   = min(flipud(abs(outputs.nanMaxDs')));
 
+cbMax = tmpMax;
+% cbMax = 4;
 %% Plotting
 
 %HeatMap of Pyr temporal disruption (Effect Size)
 figure; % set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]);
 aaa = gca;
-imagesc(flipud(abs(outputs.nanMaxDs')),[0,tmpMax]);
+imagesc(flipud(abs(outputs.nanMaxDs')),[0,cbMax]);
 aaa.YTick = 1:round((nPs-1)/5):nPs;   %Reversed 0 at top, max at bottom
 aaa.XTick = 1:round(nRamps-1)/5:nRamps;
 if pLim == 1; yticklabels(linspace(pLim*100,0,6)); else yticklabels(linspace(pLim,0,6)); end
@@ -526,14 +533,12 @@ end
 %% Saves
 if saveFlag == 1
 disp('saving vars and figs')
-saveDir = 'Your\Dir\Here\';
 if z == 1.96
     ciStr = ['_perms',num2str(permN),'_CI95'];
 elseif z == 2.58
     ciStr = ['_perms',num2str(permN),'_CI99'];
 end
-prmtag = '_learnOL';            %name of changed parameter
-prmtmp = round(pStruct.learnOverlap*100);  %value of changed parameter
+prmtmp = round(pStruct.learnDur);  %value of changed parameter
 % prmtmp = round(pStruct.learnDur);
 figtag = [prmtag,num2str(prmtmp)]; %name-value string for figure saves
 

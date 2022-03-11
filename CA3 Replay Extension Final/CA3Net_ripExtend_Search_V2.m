@@ -6,20 +6,21 @@
 %Plots various metrics and statistics for evaluating network performance
 %under varying waveform shape input
 
-clearvars
-close all
+% clearvars
+% close all
 
 pStruct.rampTypeFlag        = 1;        %1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR IP;
-pStruct.simTypeFlag         = 1;        %1 = Linear; 2 = Linear with Adaptation
-pStruct.noiseFlag           = 0;        %0 = no noise; 1 = Various noise sources; configure directly in ripExtend_fast_v2.m
+pStruct.simTypeFlag         = 2;        %1 = Linear; 2 = Linear with Adaptation
+pStruct.noiseFlag           = 0;        %0 = no noise; 1 = White noise; 2 = ChR2 Noise; 3 = Distance noise; 4 = Combined all noise
 saveFlag                    = 0;
-suppGraphFlag               = 0;        %Plot shuffle comparisons, must load in previous data
+saveDir = 'Your\Dir\Here\';
+suppGraphFlag               = 0;
 disp(['Ramp Type ', num2str(pStruct.rampTypeFlag),'; Sim Type ', num2str(pStruct.simTypeFlag), '; Noise type ', num2str(pStruct.noiseFlag)]);
 
 %Setup neuron and weight paramters
 pStruct.N                   = 15;               %Nodes per region
 N                           = 15;
-pStruct.Ww                  = 0.029;            %Weight strength pyr to pyr; try 0.029 for no adapt or 0.032 for adaptation
+pStruct.Ww                  = 0.032;            %Weight strength pyr to pyr; try 0.029 for no adapt or 0.032 for adapt
 pStruct.Hh                  = 0.035;            %Weight strength IN to Pyr
 pStruct.Wh                  = 0.05;             %Weight strength pyr to IN
 pStruct.HAuto               = 0.003;            %Weight strength IN to IN
@@ -37,7 +38,7 @@ pStruct.inDur1              = 20;               %Duration for cue
 pStruct.inDur2              = 100;              %Opto pulse duration
 pStruct.rampLen             = 0.5*pStruct.inDur2;  %Duration ramp length e.g. 0.0 to 1.0
 pStruct.onsetDelay          = 50;               %Wait time to ripple start from sim start
-pStruct.stimDelay           = 130 + pStruct.inDur1 + pStruct.onsetDelay;              %Wait time to opto pulse from sim start; try 130 (+50 +20)
+pStruct.stimDelay           = 150 + pStruct.inDur1 + pStruct.onsetDelay;              %Wait time to opto pulse from sim start; try 130 (+50 +20)
 
 % Ionic Currents and related parameters 
 pStruct.mu                  = 0.01;      %Ca-dependent K-current
@@ -47,10 +48,10 @@ pStruct.thc                 = 4*ones(1,N);
 
 % Noise Related parameters
 pStruct.kern                = 1;           %Kernel of random seed
-pStruct.noiseAmp            = 0.1;         %Amplitude of Voltage noise.
+pStruct.noiseAmp            = 0.5;         %Amplitude of Voltage noise.
 pStruct.noiseMu             = 1;           %Mean of ChR2 noise distro
-pStruct.noiseSigma          = 0.1;        %Variance of ChR2 noise distro
-
+pStruct.noiseSigma          = 0.05;        %Variance of ChR2 noise distro
+pStruct.IrrVal              = 8;           %Light scattering fit 8 or 10
 
 wtBias                      = linspace(0.004,-0.004,N);
 % wtBias                      = zeros(1,N);
@@ -107,7 +108,7 @@ outputs.Ns          = zeros(nRamps,nPs);
 aRamp = actCell{1}; aControl = actCell{2};
 hRamp = hactCell{1};hControl = hactCell{2};
 ARamp = inCell{1};  AControl = inCell{2};
-dGut = ripExtend_CohenStats_V2(actCell,hactCell,pStruct);
+dGut = ripExtend_CohenStats(actCell,hactCell,pStruct);
 
 % Calculate Peaks
 pksR = zeros(N,1); locsR = zeros(N,1);
@@ -167,19 +168,17 @@ for i = 1:nRamps
         %Run function
         [actTmp,hactTmp,inTmp] = ripExtend_fast_V2(pStruct);     %Run simulation
         %Calculate stats
-        [outputs.ds(i,j),~,outputs.dINs(i,j),outputs.Ns(i,j)] = ripExtend_CohenStats_V2(actTmp,hactTmp,pStruct);
+        [outputs.ds(i,j,1),~,outputs.dINs(i,j,1),outputs.Ns(i,j,1)] = ripExtend_CohenStats_V2(actTmp,hactTmp,pStruct);
     end
 end
 
 %% Clean data
 outputs.dsNanCor = abs(outputs.ds);
-if pStruct.noiseFlag == 1   %Use 99th percentile instead of data max
+if pStruct.noiseFlag ~= 1   %Use 99th percentile instead of data max
     linearDs = abs(reshape(outputs.ds,[1 numel(outputs.ds)]));
-    tmpMax = prctile(linearDs,99);
-    cbMax = 5;
+    tmpMax = prctile(linearDs,99)
 else                        %Use maximum, non Inf simulation value
     tmpMax = max(max(abs(~isinf(outputs.dsNanCor).*outputs.dsNanCor)));
-    cbMax = tmpMax;
 end
 outputs.dsNanCor(isnan(outputs.dsNanCor)) = tmpMax;
 outputs.dsNanCor(isinf(outputs.dsNanCor)) = tmpMax; 
@@ -191,6 +190,9 @@ outputs.dINs(isnan(outputs.dINs)) = tmpINMax;
 minDLocs = minTimes(outputs.dsNanCor,pVect,nRamps); %Calculate duration of minimum effect size
 minDs = min(flipud(outputs.dsNanCor'));    %Calculate minimum effect size
 
+% cbMax = tmpMax;
+% cbMax = max(max(outputs.dsNanCor));
+cbMax = 5;
 %% Plotting of Heatmaps
 
 %Plot map of d-scores
@@ -221,17 +223,17 @@ axis square; hcb = colorbar;
 % hcb.Label.String = "Sequence Length";
 set(aaz,'FontSize',24,'fontname','times')
 
-% % Plot map of IN d-scores
-% figure; set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]); aax = gca;
-% imagesc(flipud(outputs.dINs'),[0,max(max(outputs.dINs))]);
-% aax.YTick = 1:round((nPs-1)/5):nPs; 
-% aax.XTick = 1:round(nRamps-1)/5:nRamps;
-% yticklabels(linspace(pLim,pFloor,6));
-% xticklabels(0:rampLim*20:rampLim*100);      %For Ramp Percentage Label
-% % xlabel('Ramp Percentage'); 
-% % ylabel('Learn Overlap (ms)'); 
-% colormap cool; axis square; hcb = colorbar;
-% set(aax,'FontSize',24,'fontname','times')
+% Plot map of IN d-scores
+figure; set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]); aax = gca;
+imagesc(flipud(outputs.dINs'),[0,tmpINMax]);
+aax.YTick = 1:round((nPs-1)/5):nPs; 
+aax.XTick = 1:round(nRamps-1)/5:nRamps;
+yticklabels(linspace(pLim,pFloor,6));
+xticklabels(0:rampLim*20:rampLim*100);      %For Ramp Percentage Label
+% xlabel('Ramp Percentage'); 
+% ylabel('Learn Overlap (ms)'); 
+colormap cool; axis square; hcb = colorbar;
+set(aax,'FontSize',24,'fontname','times')
 
 %% Shuffles
 permN = 1000;
@@ -263,6 +265,21 @@ shuf.upCIrmp = shuf.rmpShuf + z*shuf.sdRmpShuffle/sqrt(permN);
 shuf.dnCIrmp = shuf.rmpShuf - z*shuf.sdRmpShuffle/sqrt(permN);
 shuf.upCIrmpSeq = shuf.rmpSeqShuf + z*shuf.sdRmpSeqShuffle/sqrt(permN);
 shuf.dnCIrmpSeq = shuf.rmpSeqShuf - z*shuf.sdRmpSeqShuffle/sqrt(permN);
+
+% Plot Basic Shuffle Figures
+rVect = rampPercs*100;
+figure; set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.1, 0.1, 0.35, 0.65]); ccb = gca;
+hold on;
+plot(rVect,shuf.durShuf,'k',rVect,shuf.upCIdur,'k--',rVect,shuf.dnCIdur,'k--')
+plot(rVect,shuf.INShuf,'r',rVect,shuf.upCIIN,'r--',rVect,shuf.dnCIIN,'r--')
+% plot(pVect,shuf.rmpShuf,'b',pVect,shuf.upCIrmp,'b--',pVect,shuf.dnCIrmp,'b--')
+% plot(pVect,shuf.rmpSeqShuf,'c',pVect,shuf.upCIrmpSeq,'c--',pVect,shuf.dnCIrmpSeq,'c--')
+% plot(rVect,shuf.seqShuf,'b',rVect,shuf.upCIseq,'b--',rVect,shuf.dnCIseq,'b--')
+if pStruct.rampTypeFlag == 1; legend('Pyr Shuffle','upper CI','lower CI','IN Shuffle'); end
+ylim([0 tmpMax]);
+set(gca,'FontSize',24,'fontname','times')
+ylabel('Mean Effect Size'); xlabel('Ramp Percentage')
+% ylabel('Mean Effect Size'); xlabel('2nd search parameter')
 
 %% Supplementary Graphs
 set(0,'DefaultLineLineWidth',2)
@@ -303,26 +320,26 @@ legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','95% CI','FontSize',16
 ylim([0 3]); xlim([1 nRamps]); saa.XTick = linspace(0,nRamps,6); xticklabels(0:20:100)
 set(gca,'FontSize',24,'fontname','times')
 % 
-% % Combined IN vs Effect Size Shuffles - must load in previous data
-% patchXs = [1:nRamps,linspace(nRamps,1,nRamps)]; %Vector of x coords;
-% figure(); set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.25, 0.28, 0.365, 0.65]); sab = gca;
-% axis square; hold on;
-% plot(FR_IMA_shufs.INShuf,'r-');
-% plot(DR_IMA_shufs.INShuf,'b-'); 
-% plot(BR_IMA_shufs.INShuf,'c-');
-% plot(FR_IP_shufs.INShuf,'r--');
-% plot(DR_IP_shufs.INShuf,'b--');
-% plot(BR_IP_shufs.INShuf,'c--');
-% patch(patchXs,[FR_IMA_shufs.dnCIIN,fliplr(FR_IMA_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1);
-% patch(patchXs,[DR_IMA_shufs.dnCIIN,fliplr(DR_IMA_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
-% patch(patchXs,[BR_IMA_shufs.dnCIIN,fliplr(BR_IMA_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
-% patch(patchXs,[FR_IP_shufs.dnCIIN,fliplr(FR_IP_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
-% patch(patchXs,[DR_IP_shufs.dnCIIN,fliplr(DR_IP_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
-% patch(patchXs,[BR_IP_shufs.dnCIIN,fliplr(BR_IP_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
-% xlabel('Ramp Percentage'); ylabel('Mean Effect Size')
-% legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','95% CI','FontSize',16,'location','southwest');
-% ylim([0 3]); xlim([1 nRamps]); sab.XTick = linspace(0,nRamps,6); xticklabels(0:20:100)
-% set(gca,'FontSize',24,'fontname','times')
+% Combined IN vs Effect Size Shuffles - must load in previous data
+patchXs = [1:nRamps,linspace(nRamps,1,nRamps)]; %Vector of x coords;
+figure(); set(gcf, 'Units', 'Normalized', 'OuterPosition', [0.25, 0.28, 0.365, 0.65]); sab = gca;
+axis square; hold on;
+plot(FR_IMA_shufs.INShuf,'r-');
+plot(DR_IMA_shufs.INShuf,'b-'); 
+plot(BR_IMA_shufs.INShuf,'c-');
+plot(FR_IP_shufs.INShuf,'r--');
+plot(DR_IP_shufs.INShuf,'b--');
+plot(BR_IP_shufs.INShuf,'c--');
+patch(patchXs,[FR_IMA_shufs.dnCIIN,fliplr(FR_IMA_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1);
+patch(patchXs,[DR_IMA_shufs.dnCIIN,fliplr(DR_IMA_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
+patch(patchXs,[BR_IMA_shufs.dnCIIN,fliplr(BR_IMA_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
+patch(patchXs,[FR_IP_shufs.dnCIIN,fliplr(FR_IP_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
+patch(patchXs,[DR_IP_shufs.dnCIIN,fliplr(DR_IP_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
+patch(patchXs,[BR_IP_shufs.dnCIIN,fliplr(BR_IP_shufs.upCIIN)],'k','EdgeColor','none','FaceAlpha',0.1,'HandleVisibility','off');
+xlabel('Ramp Percentage'); ylabel('Mean Effect Size')
+legend('FR IMA','DR IMA','BR IMA','FR IP','DR IP','BR IP','95% CI','FontSize',16,'location','southwest');
+ylim([0 3]); xlim([1 nRamps]); sab.XTick = linspace(0,nRamps,6); xticklabels(0:20:100)
+set(gca,'FontSize',24,'fontname','times')
 
 % Combined SeqLen Shuffles - must load in previous data
 patchXs = [1:nRamps,linspace(nRamps,1,nRamps)]; %Vector of x coords;
@@ -437,19 +454,43 @@ set(vvx,'FontSize',24,'fontname','times')
 % xlabel('Post-Synaptic Pyr'); ylabel('Pre-Synaptic IN')
 % set(gca,'FontSize',20)
 
+    if saveFlag == 1
+        
+        saveas(saa,[saveDir,'allShufs_rampsXmeanDs',figtag],'fig')
+        saveas(saa,[saveDir,'allShufs_rampsXmeanDs',figtag],'png')
+        saveas(saa,[saveDir,'allShufs_rampsXmeanDs',figtag],'svg')
+        saveas(sab,[saveDir,'allShufs_PyrVINmeanDs',figtag],'fig')
+        saveas(sab,[saveDir,'allShufs_PyrVINmeanDs',figtag],'png')
+        saveas(sab,[saveDir,'allShufs_PyrVINmeanDs',figtag],'svg')
+        saveas(sac,[saveDir,'allShufs_rampsXmeanNs',figtag],'fig')
+        saveas(sac,[saveDir,'allShufs_rampsXmeanNs',figtag],'png')
+        saveas(sac,[saveDir,'allShufs_rampsXmeanNs',figtag],'svg')
+        saveas(sad,[saveDir,'allShufs_prmsXmeanDs',figtag],'fig')
+        saveas(sad,[saveDir,'allShufs_prmsXmeanDs',figtag],'png')
+        saveas(sad,[saveDir,'allShufs_prmsXmeanDs',figtag],'svg')
+        saveas(sae,[saveDir,'allShufs_prmsXmeanNs',figtag],'fig')
+        saveas(sae,[saveDir,'allShufs_prmsXmeanNs',figtag],'png')
+        saveas(sae,[saveDir,'allShufs_prmsXmeanNs',figtag],'svg')
+        saveas(vvv,[saveDir,'allShufs_rampsXminDLocs',figtag],'fig')
+        saveas(vvv,[saveDir,'allShufs_rampsXminDLocs',figtag],'png')
+        saveas(vvv,[saveDir,'allShufs_rampsXminDLocs',figtag],'svg')
+        saveas(vvx,[saveDir,'allShufs_rampsXminDs',figtag],'fig')
+        saveas(vvx,[saveDir,'allShufs_rampsXminDs',figtag],'png')
+        saveas(vvx,[saveDir,'allShufs_rampsXminDs',figtag],'svg')        
+    end
+
 end
 %% Saves
 if saveFlag == 1
 disp('saving vars and figs')
-saveDir = 'Your\Dir\Here\';
 if z == 1.96
     ciStr = ['_perms',num2str(permN),'_CI95'];
 elseif z == 2.58
     ciStr = ['_perms',num2str(permN),'_CI99'];
 end
 
-prmtag = '_ChR2Noise_sigma0_';            %name of fixed parameter
-prmtmp = 1;      %value of fixed parameter
+prmtag = '_NAmp1';            %name of fixed parameter
+prmtmp = '';      %value of fixed parameter
 figtag = [prmtag,num2str(prmtmp)]; %name-value string for figure saves
 % figtag = ['_adapt_Ww_',1000*num2str(pStruct.Ww)];
 

@@ -9,16 +9,17 @@ close all
 
 %1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 6 = BR IMA; 7 = BR IP
 rampTypeFlag        = 1;
-simTypeFlag         = 1;        %1 = Linear; 2 = Linear with Adaptation
+simTypeFlag         = 2;        %1 = Linear; 2 = Linear with Adaptation
 noiseFlag           = 0;        %0 = no noise; 1 = White noise; 2 = 1/f or pink noise
 wtNoiseFlag         = 0;        %0 = no noise; 1 = Lognormal noise distribution using parameters Mu and Sigma
 saveFlag            = 0;
-disp(['Ramp Type ', num2str(rampTypeFlag),'; Sim Type ', num2str(simTypeFlag), '; Noise type ', ...
-    num2str(noiseFlag), '; Wt Mat Noise type ', num2str(wtNoiseFlag)]);
+saveDir = 'Your\Dir\Here\';
+
+disp(['Ramp Type ', num2str(rampTypeFlag),'; Sim Type ', num2str(simTypeFlag), '; Noise type ', num2str(noiseFlag), '; Wt Mat Noise type ', num2str(wtNoiseFlag)]);
 
 cueN                = 1;            %Node index for cue
 N                   = 15;           %# Nodes
-Ww                  = 0.031;        %Baseline Pyr-Pyr weight strength try 0.035 for adaptation
+Ww                  = 0.035;        %Baseline Pyr-Pyr weight strength try 0.035 for adaptation
 Hh                  = 0.05;         %Baseline Weight strength IN-Pyr
 Wh                  = 0.05;         %Baseline Weight strength Pyr-IN
 HAuto               = 0.003;        %Baseline Weight IN-IN
@@ -45,7 +46,7 @@ achTest             = 1;            %Ach state during test phase
 e1                  = 0.002;         %Learning Decay Pre synaptic
 onsetDelay          = 50/dt;           %Wait time for first pattern element to arise
 learnDur            = 80/dt;           %Duration (ms) of learn pulses
-OLPerc              = 0.55;           %Overlap (ms) of learn pattern elements
+OLPerc              = 0.60;           %Overlap (ms) of learn pattern elements
 learnOL             = round(OLPerc*learnDur);
 testDur             = 20/dt;           %Duration (ms) of test cue pulse
 rampPerc            = 0.50;         %Percentage of ramp
@@ -95,40 +96,48 @@ end
 %% Initialize Weight Matrices
 if wtNoiseFlag == 0
     W  = zeros(N,N,T);    %Init wt mat
+    AH = zeros(N,N);
+    H  = zeros(N,N);
+    
+    for i = 1:N
+        H(i,i)  = Hh;   %Direct feedback IN to Pyr
+        AH(i,i) = Wh;   %Direct excitation pyr to IN
+    end
+    
 elseif wtNoiseFlag == 1
     W = lognrnd(noiseMu,noiseSigma,N,N).*noiseAmp;          %Lognormal rand wt mat
-end
-AH = zeros(N,N)*Wh/30;    %Wt mat of a to h (feedforward activation of IN)
-H  = zeros(N,N)*Hh/20;    %Weight of h to a (feedback inhibition)
-
-ahGain = 5;
-hGain = 5;
-for i = 1:N         %Build weight mats
-    H(i,i)  = Hh;   %Direct feedback IN to Pyr
-    AH(i,i) = Wh;   %Direct excitation pyr to IN
-    if i <= N - 1   %Forward 1
-%         H(i,i+1)  = Hh/hGain;   %IN  2 Pyr
-%         AH(i,i+1) = Wh/ahGain;   %Pyr 2 IN
-    end
-    if i <= N - 2   %Forward 2
-%         H(i,i+2)  = Hh/hGain;   %IN  2 Pyr
-%         AH(i,i+2) = Wh/ahGain;   %Pyr 2 IN
-    end
-    if i <= N - 3   %Forward 3
-%         H(i,i+3)  = Hh/4;   %IN  2 Pyr
-%         AH(i,i+3) = Wh/4;   %Pyr 2 IN
-    end
-    if i > 1        %Back 1
-%         H(i,i-1)  = Hh/hGain;   %IN  2 Pyr
-%         AH(i,i-1) = Wh/ahGain;   %Pyr 2 IN
-    end
-    if i > 2        %Back 2   
-%         H(i,i-2)  = Hh/hGain;   %IN  2 Pyr
-%         AH(i,i-2) = Wh/ahGain;   %Pyr 2 IN
-    end
-    if i > 3        %Back 3
-%         H(i,i-3)  = Hh/1;   %IN  2 Pyr
-%         AH(i,i-3) = Wh/4;   %Pyr 2 IN
+    AH = zeros(N,N)*Wh/30;    %Wt mat of a to h (feedforward activation of IN)
+    H  = zeros(N,N)*Hh/20;    %Weight of h to a (feedback inhibition)
+    
+    ahGain = 1;
+    hGain = 1;
+    for i = 1:N         %Build weight mats
+        H(i,i)  = Hh;   %Direct feedback IN to Pyr
+        AH(i,i) = Wh;   %Direct excitation pyr to IN
+        if i <= N - 1   %Forward 1
+            H(i,i+1)  = Hh/hGain;   %IN  2 Pyr
+            AH(i,i+1) = Wh/ahGain;   %Pyr 2 IN
+        end
+        if i <= N - 2   %Forward 2
+            H(i,i+2)  = Hh/hGain;   %IN  2 Pyr
+            AH(i,i+2) = Wh/ahGain;   %Pyr 2 IN
+        end
+        if i <= N - 3   %Forward 3
+            %         H(i,i+3)  = Hh/4;   %IN  2 Pyr
+            %         AH(i,i+3) = Wh/4;   %Pyr 2 IN
+        end
+        if i > 1        %Back 1
+            H(i,i-1)  = Hh/hGain;   %IN  2 Pyr
+            AH(i,i-1) = Wh/ahGain;   %Pyr 2 IN
+        end
+        if i > 2        %Back 2
+            H(i,i-2)  = Hh/hGain;   %IN  2 Pyr
+            AH(i,i-2) = Wh/ahGain;   %Pyr 2 IN
+        end
+        if i > 3        %Back 3
+            %         H(i,i-3)  = Hh/1;   %IN  2 Pyr
+            %         AH(i,i-3) = Wh/4;   %Pyr 2 IN
+        end
     end
 end
 
@@ -165,6 +174,9 @@ cLearn = zeros(N,T);
 aTest  = zeros(N,T);
 hTest  = zeros(N,T);
 cTest  = zeros(N,T);
+
+aaL_e1 = zeros(N,N,T);
+aaL_e2 = zeros(N,N,T);
 
 %% Run learn block
 
@@ -256,15 +268,15 @@ aaw.XTick = 1:7:15; xticklabels(linspace(1,15,3));
 title("Learn Phase Final Network State")
 set(gca,'fontname','times','FontSize',24)
 
-% % Plot Post-learn - pre-learn
-% W_pre = W(:,:,1);
-% W_post = W(:,:,end);
-% figure; aaz = gca;
-% imagesc(flipud(W_post-W_pre)); axis square; wcb = colorbar;
-% aaz.YTick = 1:7:15; yticklabels(linspace(15,1,3));
-% aaz.XTick = 1:7:15; xticklabels(linspace(1,15,3));
-% title('Post - Pre Weights')
-% set(gca,'fontname','times','FontSize',24)
+% Plot Post-learn - pre-learn
+W_pre = W(:,:,1);
+W_post = W(:,:,end);
+figure; aaz = gca;
+imagesc(flipud(W_post-W_pre)); axis square; wcb = colorbar;
+aaz.YTick = 1:7:15; yticklabels(linspace(15,1,3));
+aaz.XTick = 1:7:15; xticklabels(linspace(1,15,3));
+title('Post - Pre Weights')
+set(gca,'fontname','times','FontSize',24)
 
 %% Run test block
 W(:,:,1) = W(:,:,end);       %Set starting time point to learn mat for test phase
@@ -279,7 +291,7 @@ for t=1:T
     
     if simTypeFlag == 1
         %Standard Linear without Adapatation
-        daTest = AIn2(:,t) + achTest.*(aaTest*W(:,:,t))' - (hhTest* H)' - eta1.*aTest(:,t);
+        daTest = AIn2(:,t) + achTest.*(aaTest*W(:,:,t))' - (hhTest* H)' - eta1.*aTest(:,t); %change in a = Input A(t) + Weight*thesholded activity (a) - Weight*thesholded activity (h) - decay*activity (a)
         dhTest = (aaTest*AH)' - HAuto.*hhTest' - eta2.*hTest(:,t);          %change in h = Weight*thresholded activity (a) - decay*activity (h)
     elseif simTypeFlag == 2
         %Linear variant with Adaptation
@@ -366,8 +378,8 @@ set(gca,'fontname','times','FontSize',24);
 if saveFlag == 1
     
 disp('saving vars and figs')
-saveDir = 'Your\Dir\Here\';
-OLStr = ['learnDur_',num2str(learnDur),'_OL_',num2str(100*OLPerc)];
+OLStr = ['LDur_',num2str(learnDur),'_OL_',num2str(100*OLPerc),'_RmpPct_',num2str(100*rampPerc)];
+
 if rampTypeFlag == 1 && rampLen1 == 0
     sBase = ['Square_',OLStr];
     saveas(aat,[saveDir,sBase,'_TestActivity'],'fig')
