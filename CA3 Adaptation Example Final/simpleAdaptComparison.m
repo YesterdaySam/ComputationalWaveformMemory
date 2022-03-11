@@ -3,7 +3,7 @@
 %Compares simple adaptation current using simulated intracellular Calcium dynamics
 %against non-adapting simulations with the same neuronal parameters and inputs
 
-% clearvars
+clearvars
 close all
 
 saveFlag = 0;
@@ -40,6 +40,7 @@ hAdapt = zeros(1,T);
 cAdapt = zeros(1,T);
 
 %Init Ramp vectors
+ARamp = zeros(1,T);
 aRamp = zeros(1,T);
 hRamp = zeros(1,T);
 cRamp = zeros(1,T);

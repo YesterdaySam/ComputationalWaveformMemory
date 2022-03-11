@@ -8,8 +8,8 @@
 % NOTE CURRENTLY CONFIGURED FOR LEARN MODEL CONTROL
 %%%
 
-% clearvars
-% close all
+clearvars
+close all
 % rng(3)                          %For reproducibility of stochastic simulations
 
 rampTypeFlag        = 'ctl';        %'ctl' = no 2nd pulse; 1 = FR IMA; 2 = DR IMA; 3 = FR IP; 4 = DR IP; 5 = BR IMA; 7 = BR = IP

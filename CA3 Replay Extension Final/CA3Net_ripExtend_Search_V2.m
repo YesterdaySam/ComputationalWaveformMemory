@@ -108,7 +108,7 @@ outputs.Ns          = zeros(nRamps,nPs);
 aRamp = actCell{1}; aControl = actCell{2};
 hRamp = hactCell{1};hControl = hactCell{2};
 ARamp = inCell{1};  AControl = inCell{2};
-dGut = ripExtend_CohenStats(actCell,hactCell,pStruct);
+dGut = ripExtend_CohenStats_V2(actCell,hactCell,pStruct);
 
 % Calculate Peaks
 pksR = zeros(N,1); locsR = zeros(N,1);
